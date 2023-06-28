@@ -1,0 +1,71 @@
+Задание
+
+Пояснения к схеме данных: перед вами набор таблиц, которые содержат информацию о продажах некоторых товаров в 
+3-х различных магазинах, а также таблицу с планами продаж на уровень каждого магазина и каждого товара. 
+
+В таблицах вида «shop_…» представлена информация о количестве продаж того или иного товара за конкретный день. 
+
+В таблице plan хранится информация о планировании по продажам тех или иных товаров на конец месяца. 
+
+В таблице products хранится общая информация по каждому из товаров.
+
+Задание:
+
+Вам выпала редкая возможность — помочь аналитикам оценить эффективность планирования продаж линейки 
+отечественных смартфонов. Линейка насчитывает целых 3 модели: «Испорченный телефон», «Сарафанное радио» и 
+«Патефон». Вы неплохого прокачали ваших аналитиков в SQL, и они даже смогли соорудить подобную конструкцию 
+(см. выше). Однако она не лишена недостатков — в ней отсутствует одна важная связующая деталь (таблица). 
+Добавить недостающую деталь будет вашим первым заданием. 
+
+После того как схема приобретет законченный вид, вам необходимо решить главную задачу — собрать вашу первую 
+витрину! Как уже изначально было озвучено, аналитикам нужно оценить, насколько отдел планирования хорошо делает 
+свою работу. Для этого вам необходимо разработать SQL-скрипт, который формирует таблицу со следующим набором 
+атрибутов:
+
+shop_name — название магазина,
+product_name — название товара,
+sales_fact — количество фактических продаж на конец месяца,
+sales_plan — количество запланированных продаж на конец месяца,
+sales_fact/sales_plan — отношение количества фактических продаже к запланированному,
+income_fact — фактический доход,
+income_plan — планируемый доход,
+income_fact/income_plan — отношение фактического дохода к запланированному.
+
+SELECT name_shop.name_shop, products.product_name,  
+(CASE
+WHEN name_shop.name_shop = 'DNS' THEN (SELECT SUM(shop_dns.sales_cnt) FROM shop_dns WHERE shop_dns.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Mvideo' THEN (SELECT SUM(shop_mvideo.sales_cnt) FROM shop_mvideo WHERE shop_mvideo.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Citilink' THEN (SELECT SUM(shop_citilink.sales_cnt) FROM shop_citilink WHERE shop_citilink.product_id = plan.product_id)  
+END) AS sales_fact, 
+plan.plan_cnt AS sales_plan, 
+(CASE
+WHEN name_shop.name_shop = 'DNS' THEN (SELECT SUM(shop_dns.sales_cnt :: double precision)/plan.plan_cnt :: double precision FROM shop_dns WHERE shop_dns.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Mvideo' THEN (SELECT SUM(shop_mvideo.sales_cnt :: double precision)/plan.plan_cnt :: double precision FROM shop_mvideo WHERE shop_mvideo.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Citilink' THEN (SELECT SUM(shop_citilink.sales_cnt :: double precision)/plan.plan_cnt :: double precision FROM shop_citilink WHERE shop_citilink.product_id = plan.product_id)  
+END) AS sales_fact_del_sales_plan,
+(CASE
+WHEN name_shop.name_shop = 'DNS' THEN (SELECT SUM(shop_dns.sales_cnt) * products.price FROM shop_dns WHERE shop_dns.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Mvideo' THEN (SELECT SUM(shop_mvideo.sales_cnt) * products.price FROM shop_mvideo WHERE shop_mvideo.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Citilink' THEN (SELECT SUM(shop_citilink.sales_cnt) * products.price FROM shop_citilink WHERE shop_citilink.product_id = plan.product_id)  
+END) AS income_fact,
+plan.plan_cnt * products.price AS income_plan,
+(CASE
+WHEN name_shop.name_shop = 'DNS' THEN (SELECT SUM(shop_dns.sales_cnt :: double precision * products.price)/(plan.plan_cnt :: double precision * products.price) FROM shop_dns WHERE shop_dns.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Mvideo' THEN (SELECT SUM(shop_mvideo.sales_cnt :: double precision * products.price)/(plan.plan_cnt :: double precision * products.price) FROM shop_mvideo WHERE shop_mvideo.product_id = plan.product_id)  
+WHEN name_shop.name_shop = 'Citilink' THEN (SELECT SUM(shop_citilink.sales_cnt :: double precision * products.price)/(plan.plan_cnt :: double precision * products.price) FROM shop_citilink WHERE shop_citilink.product_id = plan.product_id)  
+END) AS income_fact_del_income_plan,
+FROM products
+INNER JOIN plan
+ON products.product_id = plan.product_id
+INNER JOIN shop_dns
+ON products.product_id = shop_dns.product_id
+INNER JOIN shop_mvideo
+ON products.product_id = shop_mvideo.product_id
+INNER JOIN shop_citilink
+ON products.product_id = shop_citilink.product_id
+INNER JOIN name_shop
+ON plan.id_shop = name_shop.id_shop 
+GROUP BY name_shop.name_shop, products.product_name, shop_dns.product_id, shop_mvideo.product_id, 
+shop_citilink.product_id, plan.plan_cnt, products.price, plan.product_id
+ORDER BY Sales_fact, sales_plan, sales_fact_del_sales_plan, income_fact, 
+income_plan, income_fact_del_income_plan
